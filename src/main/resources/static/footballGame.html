@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parafiada - Mecz Piłki Nożnej</title>
+    <!-- Biblioteki SockJS i STOMP do obsługi WebSocket -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #1f2937;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 14px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 750px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        h2, h3 {
+            color: #1f2937;
+            margin-top: 0;
+        }
+        .hidden {
+            display: none !important;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #4338ca;
+        }
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .category-group {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .category-title {
+            font-weight: 700;
+            color: #4f46e5;
+            margin-bottom: 10px;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+        .team-checkbox-item {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        /* Styl widoku meczu */
+        .timer-container {
+            background: #1e1b4b;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+        #timer-display {
+            font-size: 32px;
+            font-weight: bold;
+            font-family: monospace;
+            margin: 5px 0;
+        }
+        #match-status {
+            font-size: 14px;
+            color: #c7d2fe;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .teams-match-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .team-match-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+        .team-match-card h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #374151;
+        }
+        .stat-display {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #4b5563;
+        }
+        .stat-display span {
+            font-weight: bold;
+            color: #111827;
+        }
+        .match-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .btn-goal { background-color: #10b981; }
+        .btn-goal:hover { background-color: #059669; }
+        .btn-undo { background-color: #ef4444; }
+        .btn-undo:hover { background-color: #dc2626; }
+        .btn-yellow { background-color: #f59e0b; color: black; }
+        .btn-yellow:hover { background-color: #d97706; }
+        .btn-red { background-color: #b91c1c; }
+        .btn-red:hover { background-color: #991b1b; }
+
+        /* Modal karnych */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        #message-box {
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <!-- SEKCJA 1: WYBÓR DRUŻYN -->
+    <div id="selection-view">
+        <h2>Wybór Drużyn do Meczu</h2>
+        <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">Wybierz dokładnie dwie drużyny z tej samej kategorii.</p>
+
+        <div id="categories-container" style="text-align: left; max-height: 350px; overflow-y: auto; margin-bottom: 20px;">
+            <!-- Ładowane dynamicznie -->
+        </div>
+
+        <button id="startMatchSetupBtn" disabled>Rozpocznij mecz</button>
+        <div id="selection-message" style="color: #ef4444; margin-top: 10px; font-size: 14px;"></div>
+    </div>
+
+    <!-- SEKCJA 2: WIDOK MECZU -->
+    <div id="match-view" class="hidden">
+        <!-- Zegar i sterowanie czasem -->
+        <div class="timer-container">
+            <div id="match-status">I Połowa</div>
+            <div id="timer-display">04:00</div>
+            <div id="timer-controls" style="margin-top: 10px;">
+                <!-- Przyciski pojawiające się w zależności od czasu -->
+            </div>
+        </div>
+
+        <!-- Bloki drużyn -->
+        <div class="teams-match-grid">
+            <!-- Drużyna A -->
+            <div class="team-match-card">
+                <h3 id="teamA-name">Drużyna A</h3>
+                <div class="stat-display">Bramki: <span id="teamA-goals">0</span></div>
+                <div class="stat-display">Ż. Kartki: <span id="teamA-yellow">0</span></div>
+                <div class="stat-display">Czs. Kartki: <span id="teamA-red">0</span></div>
+
+                <div class="match-btn-group">
+                    <button class="btn-goal" onclick="addGoal('A')">Dodaj bramkę</button>
+                    <button class="btn-undo" onclick="undoGoal('A')">Cofnij bramkę</button>
+                    <button class="btn-yellow" onclick="addCard('A', 'yellow')">Żółta kartka</button>
+                    <button class="btn-red" onclick="addCard('A', 'red')">Czerwona kartka</button>
+                </div>
+            </div>
+
+            <!-- Drużyna B -->
+            <div class="team-match-card">
+                <h3 id="teamB-name">Drużyna B</h3>
+                <div class="stat-display">Bramki: <span id="teamB-goals">0</span></div>
+                <div class="stat-display">Ż. Kartki: <span id="teamB-yellow">0</span></div>
+                <div class="stat-display">Czs. Kartki: <span id="teamB-red">0</span></div>
+
+                <div class="match-btn-group">
+                    <button class="btn-goal" onclick="addGoal('B')">Dodaj bramkę</button>
+                    <button class="btn-undo" onclick="undoGoal('B')">Cofnij bramkę</button>
+                    <button class="btn-yellow" onclick="addCard('B', 'yellow')">Żółta kartka</button>
+                    <button class="btn-red" onclick="addCard('B', 'red')">Czerwona kartka</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Przycisk Karnych -->
+        <button onclick="openPenalties()" style="background-color: #8b5cf6; width: 100%;">Rzuty Karne</button>
+        <button onclick="endMatchAndSave()" style="background-color: #10b981; width: 100%; margin-top: 10px;">Zakończ mecz i zapisz wynik</button>
+        <div id="match-message"></div>
+    </div>
+</div>
+
+<!-- MODAL KARNYCH -->
+<div id="penalties-modal" class="modal hidden">
+    <div class="modal-content">
+        <h3>Rozstrzygnięcie w Rzutach Karnych</h3>
+        <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">Wybierz zwycięzcę serii rzutów karnych:</p>
+        <button style="background-color: #3b82f6; width: 100%; margin-bottom: 10px;" onclick="setPenaltyWinner('A')">Zwycięstwo <span id="modal-teamA-name">A</span></button>
+        <button style="background-color: #3b82f6; width: 100%; margin-bottom: 15px;" onclick="setPenaltyWinner('B')">Zwycięstwo <span id="modal-teamB-name">B</span></button>
+        <button class="btn-undo" style="width: 100%; margin-top: 0;" onclick="closePenalties()">Wyjdź z karnych</button>
+    </div>
+</div>
+
+<script>
+    // Stan aplikacji meczowej
+    let allTeams = [];
+    let stompClient = null;
+    let matchState = {
+        teamA: { id: null, name: '', goals: 0, yellow: 0, red: 0 },
+        teamB: { id: null, name: '', goals: 0, yellow: 0, red: 0 },
+        currentCategory: null,
+        half: 1, // 1 - pierwsza połowa, 2 - przerwa, 3 - druga połowa, 4 - koniec regulaminowy / doliczony czas
+        timeLeft: 240, // 4 minuty w sekundach (4 * 60)
+        timerInterval: null,
+        isPaused: false,
+        penaltyWinner: null
+    };
+
+    const selectionView = document.getElementById('selection-view');
+    const matchView = document.getElementById('match-view');
+    const categoriesContainer = document.getElementById('categories-container');
+    const startMatchSetupBtn = document.getElementById('startMatchSetupBtn');
+    const selectionMessage = document.getElementById('selection-message');
+
+    // Inicjalizacja strony
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const t1Id = urlParams.get('t1Id');
+
+        if (t1Id) {
+            // Tryb meczu
+            matchState.teamA.id = t1Id;
+            matchState.teamA.name = decodeURIComponent(urlParams.get('t1Name'));
+            matchState.teamB.id = urlParams.get('t2Id');
+            matchState.teamB.name = decodeURIComponent(urlParams.get('t2Name'));
+
+            selectionView.classList.add('hidden');
+            matchView.classList.remove('hidden');
+            initMatchScreen();
+        } else {
+            // Tryb wyboru drużyn
+            fetchTeams();
+            connectWebSocket();
+        }
+    });
+
+    // Połączenie WebSocket do odbioru nowych drużyn w czasie rzeczywistym
+    function connectWebSocket() {
+        if (stompClient && stompClient.connected) return;
+
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+
+        stompClient.connect({}, function (frame) {
+            console.log('Połączono z WebSocket w module meczowym: ' + frame);
+
+            stompClient.subscribe('/topic/teams', function (message) {
+                try {
+                    const newTeam = JSON.parse(message.body);
+                    // Unikaj duplikatów
+                    if (!allTeams.some(t => t.id === newTeam.id)) {
+                        allTeams.push(newTeam);
+                        renderCategories();
+                    }
+                } catch (e) {
+                    console.error('Błąd parsowania nowej drużyny przez WebSocket:', e);
+                }
+            });
+        }, function (error) {
+            console.error('Błąd WebSocket:', error);
+            setTimeout(connectWebSocket, 5000);
+        });
+    }
+
+    // Pobieranie drużyn z backendu
+    async function fetchTeams() {
+        try {
+            const response = await fetch('/api/footballGame/getTeams', { credentials: 'include' });
+            if (response.ok) {
+                allTeams = await response.json();
+                renderCategories();
+            } else {
+                categoriesContainer.innerHTML = '<p style="color: red;">Błąd pobierania drużyn.</p>';
+            }
+        } catch (error) {
+            categoriesContainer.innerHTML = '<p style="color: red;">Błąd połączenia z serwerem.</p>';
+        }
+    }
+
+    // Grupowanie i renderowanie checkboxów po kategoriach z ograniczeniem
+    function renderCategories() {
+        const grouped = {};
+        allTeams.forEach(team => {
+            if (!grouped[team.footballCategory]) {
+                grouped[team.footballCategory] = [];
+            }
+            grouped[team.footballCategory].push(team);
+        });
+
+        categoriesContainer.innerHTML = '';
+        if (Object.keys(grouped).length === 0) {
+            categoriesContainer.innerHTML = '<p>Brak drużyn w bazie.</p>';
+            return;
+        }
+
+        for (const [category, teams] of Object.entries(grouped)) {
+            const catDiv = document.createElement('div');
+            catDiv.className = 'category-group';
+            catDiv.innerHTML = `<div class="category-title">Kategoria: ${category}</div>`;
+
+            teams.forEach(team => {
+                const item = document.createElement('div');
+                item.className = 'team-checkbox-item';
+                item.innerHTML = `
+                    <input type="checkbox" class="team-checkbox" data-category="${category}" value="${team.id}" data-name="${team.name}">
+                    <label><b>${team.name}</b> (Kapitan: ${team.captain})</label>
+                `;
+                catDiv.appendChild(item);
+            });
+            categoriesContainer.appendChild(catDiv);
+        }
+
+        // Nasłuchiwanie zaznaczeń
+        document.querySelectorAll('.team-checkbox').forEach(cb => {
+            cb.addEventListener('change', handleTeamSelectionChange);
+        });
+    }
+
+    function handleTeamSelectionChange() {
+        const checked = document.querySelectorAll('.team-checkbox:checked');
+        selectionMessage.textContent = '';
+
+        if (checked.length > 0) {
+            const activeCategory = checked[0].getAttribute('data-category');
+            // Zablokuj inne kategorie
+            document.querySelectorAll('.team-checkbox').forEach(cb => {
+                if (cb.getAttribute('data-category') !== activeCategory) {
+                    cb.disabled = true;
+                    cb.parentElement.style.opacity = '0.5';
+                }
+            });
+        } else {
+            // Odblokuj wszystko
+            document.querySelectorAll('.team-checkbox').forEach(cb => {
+                cb.disabled = false;
+                cb.parentElement.style.opacity = '1';
+            });
+        }
+
+        startMatchSetupBtn.disabled = (checked.length !== 2);
+    }
+
+    startMatchSetupBtn.addEventListener('click', () => {
+        const checked = document.querySelectorAll('.team-checkbox:checked');
+        if (checked.length !== 2) return;
+
+        const t1 = checked[0];
+        const t2 = checked[1];
+
+        window.location.href = `footballgame.html?t1Id=${t1.value}&t1Name=${encodeURIComponent(t1.getAttribute('data-name'))}&t2Id=${t2.value}&t2Name=${encodeURIComponent(t2.getAttribute('data-name'))}`;
+    });
+
+    // --- LOGIKA MECZU ---
+
+    function initMatchScreen() {
+        document.getElementById('teamA-name').textContent = matchState.teamA.name;
+        document.getElementById('teamB-name').textContent = matchState.teamB.name;
+        document.getElementById('modal-teamA-name').textContent = matchState.teamA.name;
+        document.getElementById('modal-teamB-name').textContent = matchState.teamB.name;
+
+        startTimer();
+    }
+
+    function startTimer() {
+        matchState.timerInterval = setInterval(() => {
+            if (matchState.timeLeft > 0) {
+                matchState.timeLeft--;
+                updateTimerDisplay();
+            } else {
+                clearInterval(matchState.timerInterval);
+                handleTimeExpired();
+            }
+        }, 1000);
+    }
+
+    function updateTimerDisplay() {
+        const minutes = Math.floor(matchState.timeLeft / 60);
+        const seconds = matchState.timeLeft % 60;
+        document.getElementById('timer-display').textContent =
+            `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function handleTimeExpired() {
+        const controls = document.getElementById('timer-controls');
+        const status = document.getElementById('match-status');
+
+        if (matchState.half === 1) {
+            status.textContent = 'Koniec I Połowy';
+            controls.innerHTML = `<button onclick="startSecondHalf()">Rozpocznij drugą połowę</button>`;
+        } else if (matchState.half === 2) {
+            status.textContent = 'Koniec Regulaminowego Czasu';
+            controls.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    <label>Dolicz minut:</label>
+                    <select id="extra-minutes" style="padding: 5px; border-radius: 4px;">
+                        <option value="1">1 minuta</option>
+                        <option value="2">2 minuty</option>
+                        <option value="3">3 minuty</option>
+                        <option value="5">5 minut</option>
+                    </select>
+                </div>
+                <button onclick="startExtraTime()">Zatwierdź doliczony czas</button>
+            `;
+        } else if (matchState.half === 3) {
+            status.textContent = 'Koniec Meczu (Po doliczonym czasie)';
+            controls.innerHTML = `<p style="color: #fca5a5; font-weight: bold;">Czas dobiegł końca!</p>`;
+        }
+    }
+
+    function startSecondHalf() {
+        matchState.half = 2;
+        matchState.timeLeft = 240; // kolejne 4 minuty
+        document.getElementById('match-status').textContent = 'II Połowa';
+        document.getElementById('timer-controls').innerHTML = '';
+        startTimer();
+    }
+
+    function startExtraTime() {
+        const extraMins = parseInt(document.getElementById('extra-minutes').value);
+        matchState.half = 3;
+        matchState.timeLeft = extraMins * 60; // Poprawiono błąd z nową linią
+        document.getElementById('match-status').textContent = `Doliczony Czas (+${extraMins} min)`;
+        document.getElementById('timer-controls').innerHTML = '';
+        startTimer();
+    }
+
+    // Statystyki w trakcie meczu
+    function addGoal(teamKey) {
+        if (teamKey === 'A') {
+            matchState.teamA.goals++;
+            document.getElementById('teamA-goals').textContent = matchState.teamA.goals;
+        } else {
+            matchState.teamB.goals++;
+            document.getElementById('teamB-goals').textContent = matchState.teamB.goals;
+        }
+    }
+
+    function undoGoal(teamKey) {
+        if (teamKey === 'A' && matchState.teamA.goals > 0) {
+            matchState.teamA.goals--;
+            document.getElementById('teamA-goals').textContent = matchState.teamA.goals;
+        } else if (teamKey === 'B' && matchState.teamB.goals > 0) {
+            matchState.teamB.goals--;
+            document.getElementById('teamB-goals').textContent = matchState.teamB.goals;
+        }
+    }
+
+    function addCard(teamKey, type) {
+        if (teamKey === 'A') {
+            if (type === 'yellow') {
+                matchState.teamA.yellow++;
+                document.getElementById('teamA-yellow').textContent = matchState.teamA.yellow;
+            } else {
+                matchState.teamA.red++;
+                document.getElementById('teamA-red').textContent = matchState.teamA.red;
+            }
+        } else {
+            if (type === 'yellow') {
+                matchState.teamB.yellow++;
+                document.getElementById('teamB-yellow').textContent = matchState.teamB.yellow;
+            } else {
+                matchState.teamB.red++;
+                document.getElementById('teamB-red').textContent = matchState.teamB.red;
+            }
+        }
+    }
+
+    // Obsługa karnych
+    function openPenalties() {
+        document.getElementById('penalties-modal').classList.remove('hidden');
+    }
+
+    function closePenalties() {
+        document.getElementById('penalties-modal').classList.add('hidden');
+    }
+
+    function setPenaltyWinner(teamKey) {
+        matchState.penaltyWinner = teamKey;
+        alert(`Zwycięzca po rzutach karnych: Drużyna ${teamKey}!`);
+        closePenalties();
+    }
+
+    // Wysyłanie wyniku do backendu (MatchResultDTO)
+    async function endMatchAndSave() {
+        if (matchState.teamA.goals === matchState.teamB.goals && matchState.penaltyWinner === null) {
+            alert('Mecz zakończył się remisem! Rozstrzygnij wynik w rzutach karnych przed zapisaniem.');
+            return;
+        }
+
+        let penaltyWinnerId = null;
+        if (matchState.penaltyWinner === 'A') {
+            penaltyWinnerId = Number(matchState.teamA.id);
+        } else if (matchState.penaltyWinner === 'B') {
+            penaltyWinnerId = Number(matchState.teamB.id);
+        }
+
+        const matchResultDTO = {
+            firstID: Number(matchState.teamA.id),
+            secondID: Number(matchState.teamB.id),
+            firstGoalsScored: matchState.teamA.goals,
+            firstGoalsConceded: matchState.teamB.goals,
+            firstYellowCards: matchState.teamA.yellow,
+            firstRedCards: matchState.teamA.red,
+            secondGoalsScored: matchState.teamB.goals,
+            secondGoalsConceded: matchState.teamA.goals,
+            secondYellowCards: matchState.teamB.yellow,
+            secondRedCards: matchState.teamB.red,
+            idWinnerPenaltyKicks: penaltyWinnerId
+        };
+
+        try {
+            const response = await fetch('/api/footballGame/matchResult', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(matchResultDTO)
+            });
+
+            if (response.ok) {
+                alert('Wynik meczu został pomyślnie zapisany!');
+                window.location.href = 'index.html';
+            } else {
+                alert('Wystąpił błąd podczas zapisywania wyniku meczu.');
+            }
+        } catch (error) {
+            alert('Błąd połączenia z serwerem.');
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Parafiada - Panel Mobilny</title>
+    <!-- Biblioteki SockJS i STOMP do obsługi WebSocket -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-main: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 16px;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* Kontener główny zoptymalizowany pod telefon */
+        .app-container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        @media (min-width: 500px) {
+            .app-container {
+                min-height: 85vh;
+                border-radius: var(--radius);
+                border: 1px solid var(--border);
+                margin: 20px;
+            }
+        }
+
+        /* Nagłówek */
+        .app-header {
+            padding: 20px;
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--text-main);
+        }
+
+        .user-info {
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: right;
+        }
+
+        .user-info b {
+            color: var(--text-main);
+        }
+
+        /* Zawartość */
+        .app-content {
+            padding: 20px;
+            flex-grow: 1;
+            overflow-y: auto;
+            background: #f8fafc;
+        }
+
+        /* Ekran logowania */
+        .login-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .login-card {
+            background: white;
+            padding: 30px 20px;
+            border-radius: var(--radius);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            width: 100%;
+            text-align: center;
+        }
+
+        /* Siatka kafelków menu głównego (Mobile Grid) */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .menu-tile {
+            background: white;
+            border: 1px solid var(--border);
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .menu-tile:active {
+            transform: scale(0.98);
+            background: #f1f5f9;
+        }
+
+        .menu-tile span.icon {
+            font-size: 20px;
+        }
+
+        /* Widoki poszczególnych modułów */
+        .module-view {
+            display: none;
+        }
+
+        .module-view.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Przycisk powrotu do menu */
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: var(--primary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0 0 15px 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Formularze i elementy */
+        .form-group {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        input[type="text"], input[type="password"], select {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-sizing: border-box;
+            font-size: 15px;
+            background: white;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-danger { background-color: #ef4444; }
+
+        /* Tabele responsywne */
+        .table-container {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow-x: auto;
+            background: white;
+            max-height: 350px;
+            margin-bottom: 15px;
+        }
+
+        .modern-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .modern-table th, .modern-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modern-table th {
+            background-color: #f8fafc;
+            color: var(--text-main);
+            position: sticky;
+            top: 0;
+        }
+
+        .category-heading {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            margin: 15px 0 8px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .podium-1 { background-color: #fef9c3 !important; font-weight: bold; }
+        .podium-2 { background-color: #f1f5f9 !important; }
+        .podium-3 { background-color: #ffedd5 !important; }
+
+        .message-box {
+            margin-top: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        .footer-action {
+            padding: 15px 20px;
+            background: #ffffff;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+<!-- SEKCJA LOGOWANIA -->
+<div id="login-section" class="login-wrapper">
+    <div class="login-card">
+        <h2 style="margin-top: 0; margin-bottom: 20px; color: var(--text-main);">Parafiada</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Login</label>
+                <input type="text" id="username" placeholder="Wpisz login" autocomplete="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Hasło</label>
+                <input type="password" id="password" placeholder="Wpisz hasło" required>
+            </div>
+            <button type="submit" class="btn">Zaloguj się</button>
+        </form>
+        <div id="error-message" class="message-box" style="color: #ef4444;"></div>
+    </div>
+</div>
+
+<!-- PANEL GŁÓWNY (MOBILNY DASHBOARD) -->
+<div id="game-section" class="app-container hidden">
+    <div class="app-header">
+        <h2>Parafiada</h2>
+        <div id="welcome-user" class="user-info"></div>
+    </div>
+
+    <div class="app-content">
+
+        <!-- WIDOK 0: MENU GŁÓWNE (KAFELKI) -->
+        <div id="view-menu" class="module-view active">
+            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 16px; color: var(--text-muted);">Menu główne</h3>
+            <div class="menu-grid" id="menu-grid">
+                <!-- Kafelki generowane dynamicznie na podstawie ról -->
+            </div>
+        </div>
+
+        <!-- WIDOK 1: DODAJ GRACZA -->
+        <div id="view-players" class="module-view">
+            <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
+            <h3 style="margin-top: 0;">Dodaj nowego gracza</h3>
+            <form id="playerForm">
+                <div class="form-group">
+                    <label for="firstName">Imię</label>
+                    <input type="text" id="firstName" placeholder="Wpisz imię" required>
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Nazwisko</label>
+                    <input type="text" id="lastName" placeholder="Wpisz nazwisko" required>
+                </div>
+                <button type="submit" class="btn">Zapisz gracza</button>
+            </form>
+            <div id="player-message" class="message-box"></div>
+        </div>
+
+        <!-- WIDOK 2: WYBIERZ GRACZY DO GRY -->
+        <div id="view-select-players" class="module-view">
+            <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
+            <h3 style="margin-top: 0;">Wybierz 2 graczy do gry</h3>
+            <div class="table-container">
+                <table class="modern-table">
+                    <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">✓</th>
+                        <th>Imię</th>
+                        <th>Nazwisko</th>
+                    </tr>
+                    </thead>
+                    <tbody id="players-table-body"></tbody>
+                </table>
+            </div>
+            <button id="startGameBtn" class="btn">Rozpocznij grę</button>
+            <div id="select-players-message" class="message-box"></div>
+        </div>
+
+        <!-- WIDOK 3: KLASYFIKACJA GRACZY -->
+        <div id="view-winners" class="module-view">
+            <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
+            <h3 style="margin-top: 0;">Klasyfikacja graczy</h3>
+            <div class="table-container">
+                <table class="modern-table">
+                    <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">Poz</th>
+                        <th>Imię</th>
+                        <th>Nazwisko</th>
+                        <th style="text-align: right;">Pkt</th>
+                    </tr>
+                    </thead>
+                    <tbody id="winners-table-body"></tbody>
+                </table>
+            </div>
+            <div id="get-winner-message" class="message-box"></div>
+        </div>
+
+        <!-- WIDOK 4: MECZ PIŁKARSKI -->
+        <div id="view-football-match" class="module-view">
+            <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
+            <h3 style="margin-top: 0;">Mecz Piłki Nożnej</h3>
+            <p style="color: var(--text-muted); font-size: 14px;">Przejdź do panelu symulacji meczu i wyboru drużyn.</p>
+            <button id="goToFootballGameBtn" class="btn">Otwórz moduł meczowy</button>
+        </div>
+
+        <!-- WIDOK 5: REJESTRACJA DRUŻYNY -->
+        <div id="view-football-reg" class="module-view">
+            <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
+            <h3 style="margin-top: 0;">Rejestracja drużyny</h3>
+            <form id="footballRegForm">
+                <div class="form-group">
+                    <label for="team-name">Nazwa drużyny</label>
+                    <input type="text" id="team-name" placeholder="Wpisz nazwę" required>
+                </div>
+                <div class="form-group">
+                    <label for="team-captain">Kapitan</label>
+                    <input type="text" id="team-captain" placeholder="Wpisz kapitana" required>
+                </div>
+                <div class="form-group">
+                    <label for="team-category">Kategoria</label>
+                    <select id="team-category">
+                        <option value="JUNIOR">JUNIOR</option>
+                        <option value="MEDIUM">MEDIUM</option>
+                        <option value="SENIOR">SENIOR</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Zapisz drużynę</button>
+            </form>
+            <div id="football-reg-message" class="message-box"></div>
+        </div>
+
+        <!-- WIDOK 6: WYNIKI DRUŻYN -->
+        <div id="view-football-winners" class="module-view">
+            <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
+            <h3 style="margin-top: 0;">Wyniki drużyn</h3>
+
+            <div class="category-heading">Kategoria: JUNIOR</div>
+            <div class="table-container">
+                <table class="modern-table">
+                    <thead>
+                    <tr>
+                        <th>Poz</th><th>Drużyna</th><th>Kapitan</th><th>Pkt</th><th>Bramki</th><th>Ż.K</th><th>C.K</th>
+                    </tr>
+                    </thead>
+                    <tbody id="football-winners-junior-body"></tbody>
+                </table>
+            </div>
+
+            <div class="category-heading">Kategoria: MEDIUM</div>
+            <div class="table-container">
+                <table class="modern-table">
+                    <thead>
+                    <tr>
+                        <th>Poz</th><th>Drużyna</th><th>Kapitan</th><th>Pkt</th><th>Bramki</th><th>Ż.K</th><th>C.K</th>
+                    </tr>
+                    </thead>
+                    <tbody id="football-winners-medium-body"></tbody>
+                </table>
+            </div>
+
+            <div class="category-heading">Kategoria: SENIOR</div>
+            <div class="table-container">
+                <table class="modern-table">
+                    <thead>
+                    <tr>
+                        <th>Poz</th><th>Drużyna</th><th>Kapitan</th><th>Pkt</th><th>Bramki</th><th>Ż.K</th><th>C.K</th>
+                    </tr>
+                    </thead>
+                    <tbody id="football-winners-senior-body"></tbody>
+                </table>
+            </div>
+            <div id="football-winners-message" class="message-box"></div>
+        </div>
+
+        <!-- WIDOK 7: ADMIN - REJESTRACJA UŻYTKOWNIKA -->
+        <div id="view-admin" class="module-view">
+            <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
+            <h3 style="margin-top: 0;">Nowy użytkownik systemu</h3>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="new-username">Login</label>
+                    <input type="text" id="new-username" placeholder="Login" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Hasło</label>
+                    <input type="password" id="new-password" placeholder="Hasło" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-role">Rola</label>
+                    <select id="new-role">
+                        <option value="ADMIN">ADMIN</option>
+                        <option value="FOOTBALL_USER">FOOTBALL_USER</option>
+                        <option value="USER">USER</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Dodaj użytkownika</button>
+            </form>
+            <div id="register-message" class="message-box"></div>
+        </div>
+
+    </div>
+
+    <div class="footer-action">
+        <button id="logoutBtn" class="btn btn-danger" style="margin-top: 0;">Wyloguj się</button>
+    </div>
+</div>
+
+<script>
+    let currentUserRole = null;
+    let stompClient = null;
+
+    const loginSection = document.getElementById('login-section');
+    const gameSection = document.getElementById('game-section');
+    const loginForm = document.getElementById('loginForm');
+    const errorMessage = document.getElementById('error-message');
+    const welcomeUser = document.getElementById('welcome-user');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const menuGrid = document.getElementById('menu-grid');
+
+    // Definicja kafelków menu z uprawnieniami
+    const menuItems = [
+        { id: 'view-players', title: 'Dodaj gracza', icon: '👤', roles: ['ADMIN', 'USER', 'FOOTBALL_USER'] }, // Dostępne dla gracza/admina
+        { id: 'view-select-players', title: 'Rozpocznij grę', icon: '🎮', roles: ['ADMIN', 'USER'] },
+        { id: 'view-winners', title: 'Klasyfikacja graczy', icon: '🏆', roles: ['ADMIN', 'USER'] },
+        { id: 'view-football-match', title: 'Mecz piłkarski', icon: '⚽', roles: ['ADMIN', 'FOOTBALL_USER'] },
+        { id: 'view-football-reg', title: 'Rejestracja drużyny', icon: '📋', roles: ['ADMIN', 'FOOTBALL_USER'] },
+        { id: 'view-football-winners', title: 'Wyniki drużyn', icon: '🏅', roles: ['ADMIN', 'FOOTBALL_USER'] },
+        { id: 'view-admin', title: 'Zarządzaj użytkownikami', icon: '⚙️', roles: ['ADMIN'] }
+    ];
+
+    // WebSocket
+    function connectWebSocket() {
+        if (stompClient && stompClient.connected) return;
+
+        const socket = new SockJS('/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+
+        stompClient.connect({}, function (frame) {
+            stompClient.subscribe('/topic/players', function (msg) {
+                try {
+                    const p = JSON.parse(msg.body);
+                    const tb = document.getElementById('players-table-body');
+                    if (tb && !tb.innerHTML.includes(p.id)) {
+                        if (tb.innerHTML.includes('Brak')) tb.innerHTML = '';
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td style="text-align: center;"><input type="checkbox" class="player-checkbox" value="${p.id}" data-name="${p.firstName} ${p.lastName}"></td><td>${p.firstName}</td><td>${p.lastName}</td>`;
+                        tb.appendChild(tr);
+                    }
+                } catch(e){}
+            });
+
+            stompClient.subscribe('/topic/teams', function (msg) {
+                try {
+                    const t = JSON.parse(msg.body);
+                    const tbName = t.footballCategory === 'JUNIOR' ? 'football-winners-junior-body' : t.footballCategory === 'MEDIUM' ? 'football-winners-medium-body' : 'football-winners-senior-body';
+                    const tb = document.getElementById(tbName);
+                    if (tb) {
+                        if (tb.innerHTML.includes('Brak')) tb.innerHTML = '';
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td style="text-align: center;">-</td><td><b>${t.name}</b></td><td>${t.captain}</td><td style="text-align: center; font-weight: 600; color: var(--primary);">${t.points ?? 0}</td><td style="text-align: center;">${t.goalsScored ?? 0}:${t.goalsConceded ?? 0}</td><td style="text-align: center; color: #d97706;">🟡 ${t.yellowCards ?? 0}</td><td style="text-align: center; color: #dc2626;">🔴 ${t.redCards ?? 0}</td>`;
+                        tb.appendChild(tr);
+                    }
+                } catch(e){}
+            });
+        });
+    }
+
+    // Przełączanie widoków (Menu <-> Moduł)
+    function showView(viewId) {
+        document.querySelectorAll('.module-view').forEach(v => v.classList.remove('active'));
+        const target = document.getElementById(viewId);
+        if (target) {
+            target.classList.add('active');
+            sessionStorage.setItem('activeView', viewId);
+
+            // Ładowanie danych przy wejściu w widok
+            if (viewId === 'view-select-players') fetchAndRenderPlayers();
+            if (viewId === 'view-winners') fetchAndRenderWinners();
+            if (viewId === 'view-football-winners') fetchAndRenderFootballWinners();
+        }
+    }
+
+    function goToMenu() {
+        showView('view-menu');
+    }
+
+    function buildMenu() {
+        menuGrid.innerHTML = '';
+        menuItems.forEach(item => {
+            if (item.roles.includes(currentUserRole)) {
+                const tile = document.createElement('div');
+                tile.className = 'menu-tile';
+                tile.innerHTML = `<span>${item.title}</span><span class="icon">${item.icon}</span>`;
+                tile.addEventListener('click', () => showView(item.id));
+                menuGrid.appendChild(tile);
+            }
+        });
+    }
+
+    function checkSession() {
+        const username = sessionStorage.getItem('username');
+        const role = sessionStorage.getItem('role');
+
+        if (username && role) {
+            currentUserRole = role;
+            loginSection.classList.add('hidden');
+            gameSection.classList.remove('hidden');
+            welcomeUser.innerHTML = `<b>${username}</b> (${role})`;
+
+            buildMenu();
+            connectWebSocket();
+
+            const savedView = sessionStorage.getItem('activeView') || 'view-menu';
+            showView(savedView);
+        } else {
+            gameSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', checkSession);
+
+    // Pobieranie danych
+    async function fetchAndRenderPlayers() {
+        const tb = document.getElementById('players-table-body');
+        tb.innerHTML = '<tr><td colspan="3" style="text-align:center;">Ładowanie...</td></tr>';
+        try {
+            const res = await fetch('/api/game/getPlayers', { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                const players = Array.isArray(data) ? data : Object.values(data);
+                if (players.length === 0) {
+                    tb.innerHTML = '<tr><td colspan="3" style="text-align:center; color: var(--text-muted);">Brak graczy.</td></tr>';
+                    return;
+                }
+                tb.innerHTML = '';
+                players.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td style="text-align: center;"><input type="checkbox" class="player-checkbox" value="${p.id}" data-name="${p.firstName} ${p.lastName}"></td><td>${p.firstName}</td><td>${p.lastName}</td>`;
+                    tb.appendChild(tr);
+                });
+            }
+        } catch(e) { tb.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Błąd</td></tr>'; }
+    }
+
+    async function fetchAndRenderWinners() {
+        const tb = document.getElementById('winners-table-body');
+        tb.innerHTML = '<tr><td colspan="4" style="text-align:center;">Ładowanie...</td></tr>';
+        try {
+            const res = await fetch('/api/game/getWinner', { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                const winners = Array.isArray(data) ? data : Object.values(data);
+                if (winners.length === 0) {
+                    tb.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">Brak danych.</td></tr>';
+                    return;
+                }
+                tb.innerHTML = '';
+                winners.forEach((w, i) => {
+                    let rank = `${i + 1}`, cls = '';
+                    if (i === 0) { rank = '🥇'; cls = 'podium-1'; }
+                    else if (i === 1) { rank = '🥈'; cls = 'podium-2'; }
+                    else if (i === 2) { rank = '🥉'; cls = 'podium-3'; }
+                    const tr = document.createElement('tr');
+                    if (cls) tr.className = cls;
+                    tr.innerHTML = `<td style="text-align: center;">${rank}</td><td>${w.firstName}</td><td>${w.lastName}</td><td style="font-weight: 600; text-align: right; color: var(--primary);">${w.points} pkt</td>`;
+                    tb.appendChild(tr);
+                });
+            }
+        } catch(e) { tb.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Błąd</td></tr>'; }
+    }
+
+    async function fetchAndRenderFootballWinners() {
+        ['football-winners-junior-body', 'football-winners-medium-body', 'football-winners-senior-body'].forEach(id => {
+            document.getElementById(id).innerHTML = '<tr><td colspan="7" style="text-align:center;">Ładowanie...</td></tr>';
+        });
+        try {
+            const res = await fetch('/api/footballGame/winner', { credentials: 'include' });
+            if (res.ok) {
+                const winners = await res.json();
+                const grouped = { JUNIOR: [], MEDIUM: [], SENIOR: [] };
+                winners.forEach(w => { if (grouped[w.footballCategory]) grouped[w.footballCategory].push(w); });
+
+                function render(tbId, list) {
+                    const tb = document.getElementById(tbId);
+                    if (list.length === 0) {
+                        tb.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--text-muted);">Brak</td></tr>';
+                        return;
+                    }
+                    tb.innerHTML = '';
+                    list.forEach((w, i) => {
+                        let rank = `${i + 1}`, cls = '';
+                        if (i === 0) { rank = '🥇'; cls = 'podium-1'; }
+                        else if (i === 1) { rank = '🥈'; cls = 'podium-2'; }
+                        else if (i === 2) { rank = '🥉'; cls = 'podium-3'; }
+                        const tr = document.createElement('tr');
+                        if (cls) tr.className = cls;
+                        tr.innerHTML = `<td style="text-align: center;">${rank}</td><td><b>${w.name}</b></td><td>${w.captain}</td><td style="text-align: center; font-weight: 600; color: var(--primary);">${w.points}</td><td style="text-align: center;">${w.goalsScored}:${w.goalsConceded}</td><td style="text-align: center; color: #d97706;">🟡 ${w.yellowCards}</td><td style="text-align: center; color: #dc2626;">🔴 ${w.redCards}</td>`;
+                        tb.appendChild(tr);
+                    });
+                }
+                render('football-winners-junior-body', grouped.JUNIOR);
+                render('football-winners-medium-body', grouped.MEDIUM);
+                render('football-winners-senior-body', grouped.SENIOR);
+            }
+        } catch(e) {}
+    }
+
+    // Obsługa formularzy
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorMessage.textContent = '';
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ username, password })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                sessionStorage.setItem('username', data.username);
+                sessionStorage.setItem('role', data.role);
+                checkSession();
+            } else {
+                errorMessage.textContent = 'Nieprawidłowy login lub hasło.';
+            }
+        } catch(e) { errorMessage.textContent = 'Błąd serwera.'; }
+    });
+
+    document.getElementById('playerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('player-message');
+        msg.textContent = '';
+        const firstName = document.getElementById('firstName').value.trim();
+        const lastName = document.getElementById('lastName').value.trim();
+        try {
+            const res = await fetch('/api/game/newPlayer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ firstName, lastName })
+            });
+            if (res.ok) {
+                msg.style.color = '#10b981';
+                msg.textContent = 'Gracz dodany!';
+                e.target.reset();
+            } else {
+                msg.style.color = '#ef4444';
+                msg.textContent = 'Błąd dodawania.';
+            }
+        } catch(e) { msg.style.color = '#ef4444'; msg.textContent = 'Błąd połączenia.'; }
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('register-message');
+        msg.textContent = '';
+        const username = document.getElementById('new-username').value.trim();
+        const password = document.getElementById('new-password').value;
+        const role = document.getElementById('new-role').value;
+        try {
+            const res = await fetch('/api/admin/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ username, password, role })
+            });
+            if (res.ok) {
+                msg.style.color = '#10b981';
+                msg.textContent = await res.text();
+                e.target.reset();
+            } else {
+                msg.style.color = '#ef4444';
+                msg.textContent = 'Błąd rejestracji.';
+            }
+        } catch(e) { msg.style.color = '#ef4444'; msg.textContent = 'Błąd połączenia.'; }
+    });
+
+    document.getElementById('footballRegForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('football-reg-message');
+        msg.textContent = '';
+        const name = document.getElementById('team-name').value.trim();
+        const captain = document.getElementById('team-captain').value.trim();
+        const footballCategory = document.getElementById('team-category').value;
+        try {
+            const res = await fetch('/api/footballGame/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ name, captain, footballCategory })
+            });
+            if (res.ok) {
+                msg.style.color = '#10b981';
+                msg.textContent = 'Drużyna zarejestrowana!';
+                e.target.reset();
+            } else {
+                msg.style.color = '#ef4444';
+                msg.textContent = 'Błąd rejestracji.';
+            }
+        } catch(e) { msg.style.color = '#ef4444'; msg.textContent = 'Błąd połączenia.'; }
+    });
+
+    document.getElementById('startGameBtn').addEventListener('click', () => {
+        const msg = document.getElementById('select-players-message');
+        msg.textContent = '';
+        const checked = document.querySelectorAll('.player-checkbox:checked');
+        if (checked.length !== 2) {
+            msg.style.color = '#ef4444';
+            msg.textContent = 'Wybierz dokładnie dwóch graczy!';
+            return;
+        }
+        const p1Id = checked[0].value;
+        const p1Name = encodeURIComponent(checked[0].getAttribute('data-name'));
+        const p2Id = checked[1].value;
+        const p2Name = encodeURIComponent(checked[1].getAttribute('data-name'));
+        window.location.href = `game.html?p1Id=${p1Id}&p1Name=${p1Name}&p2Id=${p2Id}&p2Name=${p2Name}`;
+    });
+
+    document.getElementById('goToFootballGameBtn').addEventListener('click', () => {
+        window.location.href = 'footballgame.html';
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            if (stompClient && stompClient.connected) stompClient.disconnect();
+            sessionStorage.clear();
+            gameSection.classList.add('hidden');
+            loginSection.classList.remove('hidden');
+            loginForm.reset();
+        } catch(e) { alert('Błąd wylogowania.'); }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Parafiada - Pojedynek</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-main: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 16px;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* Kontener dopasowany do stylu mobilnego dashboardu */
+        .card {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            padding: 24px;
+            justify-content: space-between;
+        }
+
+        @media (min-width: 500px) {
+            .card {
+                min-height: auto;
+                border-radius: var(--radius);
+                border: 1px solid var(--border);
+                margin: 20px;
+                max-width: 480px;
+            }
+        }
+
+        .header-container {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        h2 {
+            color: var(--text-main);
+            margin-top: 0;
+            font-size: 20px;
+        }
+
+        #matchup-info {
+            margin: 30px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-main);
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .win-btn-1 {
+            background-color: #3b82f6;
+        }
+        .win-btn-1:hover {
+            background-color: #2563eb;
+        }
+
+        .win-btn-2 {
+            background-color: #10b981;
+        }
+        .win-btn-2:hover {
+            background-color: #059669;
+        }
+
+        .back-btn {
+            background-color: #64748b;
+            margin-top: 15px;
+        }
+        .back-btn:hover {
+            background-color: #475569;
+        }
+
+        .buttons-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #result-message {
+            margin-top: 15px;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .content-body {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header-container">
+        <h2>Pojedynek w toku</h2>
+    </div>
+
+    <div class="content-body">
+        <div id="matchup-info" style="text-align: center;">
+            Ładowanie danych pojedynku...
+        </div>
+
+        <!-- Przyciski wyboru zwycięzcy -->
+        <div id="action-buttons" class="buttons-container hidden">
+            <button id="winPlayer1Btn" class="btn win-btn-1"></button>
+            <button id="winPlayer2Btn" class="btn win-btn-2"></button>
+        </div>
+
+        <div id="result-message"></div>
+    </div>
+
+    <div>
+        <button id="backBtn" class="btn back-btn">Wróć do menu głównego</button>
+    </div>
+</div>
+
+<script>
+    // Odczytywanie parametrów graczy z adresu URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const p1Id = urlParams.get('p1Id');
+    const p1Name = decodeURIComponent(urlParams.get('p1Name') || '');
+    const p2Id = urlParams.get('p2Id');
+    const p2Name = decodeURIComponent(urlParams.get('p2Name') || '');
+
+    const matchupInfo = document.getElementById('matchup-info');
+    const actionButtons = document.getElementById('action-buttons');
+    const winPlayer1Btn = document.getElementById('winPlayer1Btn');
+    const winPlayer2Btn = document.getElementById('winPlayer2Btn');
+    const resultMessage = document.getElementById('result-message');
+    const backBtn = document.getElementById('backBtn');
+
+    // Walidacja obecności danych w URL
+    if (!p1Id || !p2Id || !p1Name || !p2Name) {
+        matchupInfo.textContent = 'Błąd: Nie wybrano prawidłowych graczy do pojedynku.';
+    } else {
+        matchupInfo.innerHTML = `<span style="color:#3b82f6;">${p1Name}</span> <br><span style="font-size: 14px; color: var(--text-muted); font-weight: normal; margin: 8px 0; display:block;">VS</span> <span style="color:#10b981;">${p2Name}</span>`;
+
+        winPlayer1Btn.textContent = `Wygrywa ${p1Name}`;
+        winPlayer2Btn.textContent = `Wygrywa ${p2Name}`;
+
+        actionButtons.classList.remove('hidden');
+    }
+
+    // Funkcja wysyłająca ID zwycięzcy do backendu i automatycznie wracająca do menu
+    async function declareWinner(winnerId, winnerName) {
+        resultMessage.textContent = 'Zapisywanie wyniku...';
+        resultMessage.style.color = 'var(--text-muted)';
+
+        try {
+            const response = await fetch('/api/game/endOfGame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(Number(winnerId)) // Przesyłamy czyste ID jako JSON Long
+            });
+
+            if (response.ok) {
+                resultMessage.style.color = '#10b981';
+                resultMessage.textContent = `Zwycięzca: ${winnerName}! Zapisano. Powrót...`;
+                actionButtons.classList.add('hidden'); // Ukrywamy przyciski
+                backBtn.classList.add('hidden');       // Ukrywamy przycisk ręcznego powrotu
+
+                // Automatyczne przekierowanie po 1.5 sekundy
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+            } else {
+                resultMessage.style.color = '#ef4444';
+                resultMessage.textContent = 'Wystąpił błąd podczas zapisywania wyniku.';
+            }
+        } catch (error) {
+            resultMessage.style.color = '#ef4444';
+            resultMessage.textContent = 'Błąd połączenia z serwerem.';
+        }
+    }
+
+    // Nasłuchiwanie kliknięć przycisków wygranej
+    winPlayer1Btn.addEventListener('click', () => declareWinner(p1Id, p1Name));
+    winPlayer2Btn.addEventListener('click', () => declareWinner(p2Id, p2Name));
+
+    // Ręczny przycisk powrotu do menu
+    backBtn.addEventListener('click', () => {
+        window.location.href = 'index.html';
+    });
+</script>
+</body>
+</html>

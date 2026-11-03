@@ -18,6 +18,7 @@ public class GameService {
         PlayerEntity playerEntity=new PlayerEntity();
         playerEntity.setFirstName(playerDTO.firstName());
         playerEntity.setLastName(playerDTO.lastName());
+        playerEntity.setCategory(playerDTO.category());
         gameRepository.save(playerEntity);
 
         applicationEventPublisher.publishEvent(new PlayerCreatedEvent(playerEntity));
@@ -31,7 +32,8 @@ public class GameService {
                 .map(playerEntity -> new GamerDTO(
                         playerEntity.getId(),
                         playerEntity.getFirstName(),
-                        playerEntity.getLastName()
+                        playerEntity.getLastName(),
+                        playerEntity.getCategory()
                 ))
                 .toList();
     }
@@ -47,7 +49,8 @@ public class GameService {
                 .map(playerEntity -> new WInnerDTO(
                         playerEntity.getFirstName(),
                         playerEntity.getLastName(),
-                        playerEntity.getPoints()
+                        playerEntity.getPoints(),
+                        playerEntity.getCategory()
                 ))
                 .toList();
     }

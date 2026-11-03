@@ -17,7 +17,7 @@ public class FootballEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable=false)
-    private FootballCategory footballCategory;
+    private Category footballCategory;
 
     @Column(unique=true, nullable=false)
     private String name;

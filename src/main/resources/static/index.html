@@ -330,15 +330,33 @@
                     <label for="lastName">Nazwisko</label>
                     <input type="text" id="lastName" placeholder="Wpisz nazwisko" required>
                 </div>
+                <div class="form-group">
+                    <label for="player-category">Kategoria</label>
+                    <select id="player-category">
+                        <option value="JUNIOR">JUNIOR</option>
+                        <option value="MEDIUM">MEDIUM</option>
+                        <option value="SENIOR">SENIOR</option>
+                    </select>
+                </div>
                 <button type="submit" class="btn">Zapisz gracza</button>
             </form>
             <div id="player-message" class="message-box"></div>
         </div>
 
-        <!-- WIDOK 2: WYBIERZ GRACZY DO GRY -->
+        <!-- WIDOK 2: WYBIERZ GRACZY DO GRY (Z FILTREM KATEGORII) -->
         <div id="view-select-players" class="module-view">
             <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
             <h3 style="margin-top: 0;">Wybierz 2 graczy do gry</h3>
+
+            <div class="form-group">
+                <label for="filter-category">Filtruj kategorię</label>
+                <select id="filter-category" onchange="renderFilteredPlayers()">
+                    <option value="JUNIOR">JUNIOR</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="SENIOR">SENIOR</option>
+                </select>
+            </div>
+
             <div class="table-container">
                 <table class="modern-table">
                     <thead>
@@ -346,6 +364,7 @@
                         <th style="width: 40px; text-align: center;">✓</th>
                         <th>Imię</th>
                         <th>Nazwisko</th>
+                        <th>Kategoria</th>
                     </tr>
                     </thead>
                     <tbody id="players-table-body"></tbody>
@@ -355,10 +374,12 @@
             <div id="select-players-message" class="message-box"></div>
         </div>
 
-        <!-- WIDOK 3: KLASYFIKACJA GRACZY -->
+        <!-- WIDOK 3: KLASYFIKACJA GRACZY (TRZY TABELE WG KATEGORII) -->
         <div id="view-winners" class="module-view">
             <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
             <h3 style="margin-top: 0;">Klasyfikacja graczy</h3>
+
+            <div class="category-heading">Kategoria: JUNIOR</div>
             <div class="table-container">
                 <table class="modern-table">
                     <thead>
@@ -369,9 +390,40 @@
                         <th style="text-align: right;">Pkt</th>
                     </tr>
                     </thead>
-                    <tbody id="winners-table-body"></tbody>
+                    <tbody id="winners-junior-body"></tbody>
                 </table>
             </div>
+
+            <div class="category-heading">Kategoria: MEDIUM</div>
+            <div class="table-container">
+                <table class="modern-table">
+                    <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">Poz</th>
+                        <th>Imię</th>
+                        <th>Nazwisko</th>
+                        <th style="text-align: right;">Pkt</th>
+                    </tr>
+                    </thead>
+                    <tbody id="winners-medium-body"></tbody>
+                </table>
+            </div>
+
+            <div class="category-heading">Kategoria: SENIOR</div>
+            <div class="table-container">
+                <table class="modern-table">
+                    <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">Poz</th>
+                        <th>Imię</th>
+                        <th>Nazwisko</th>
+                        <th style="text-align: right;">Pkt</th>
+                    </tr>
+                    </thead>
+                    <tbody id="winners-senior-body"></tbody>
+                </table>
+            </div>
+
             <div id="get-winner-message" class="message-box"></div>
         </div>
 
@@ -488,6 +540,7 @@
 <script>
     let currentUserRole = null;
     let stompClient = null;
+    let allPlayersCache = []; // Cache na graczy do filtrowania w widoku wyboru
 
     const loginSection = document.getElementById('login-section');
     const gameSection = document.getElementById('game-section');
@@ -499,7 +552,7 @@
 
     // Definicja kafelków menu z uprawnieniami
     const menuItems = [
-        { id: 'view-players', title: 'Dodaj gracza', icon: '👤', roles: ['ADMIN', 'USER', 'FOOTBALL_USER'] }, // Dostępne dla gracza/admina
+        { id: 'view-players', title: 'Dodaj gracza', icon: '👤', roles: ['ADMIN', 'USER', 'FOOTBALL_USER'] },
         { id: 'view-select-players', title: 'Rozpocznij grę', icon: '🎮', roles: ['ADMIN', 'USER'] },
         { id: 'view-winners', title: 'Klasyfikacja graczy', icon: '🏆', roles: ['ADMIN', 'USER'] },
         { id: 'view-football-match', title: 'Mecz piłkarski', icon: '⚽', roles: ['ADMIN', 'FOOTBALL_USER'] },
@@ -520,12 +573,9 @@
             stompClient.subscribe('/topic/players', function (msg) {
                 try {
                     const p = JSON.parse(msg.body);
-                    const tb = document.getElementById('players-table-body');
-                    if (tb && !tb.innerHTML.includes(p.id)) {
-                        if (tb.innerHTML.includes('Brak')) tb.innerHTML = '';
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td style="text-align: center;"><input type="checkbox" class="player-checkbox" value="${p.id}" data-name="${p.firstName} ${p.lastName}"></td><td>${p.firstName}</td><td>${p.lastName}</td>`;
-                        tb.appendChild(tr);
+                    if (!allPlayersCache.some(item => item.id === p.id)) {
+                        allPlayersCache.push(p);
+                        renderFilteredPlayers();
                     }
                 } catch(e){}
             });
@@ -601,54 +651,98 @@
 
     window.addEventListener('DOMContentLoaded', checkSession);
 
-    // Pobieranie danych
+    // Pobieranie danych graczy do wyboru (z filtrowaniem)
     async function fetchAndRenderPlayers() {
         const tb = document.getElementById('players-table-body');
-        tb.innerHTML = '<tr><td colspan="3" style="text-align:center;">Ładowanie...</td></tr>';
+        tb.innerHTML = '<tr><td colspan="4" style="text-align:center;">Ładowanie...</td></tr>';
         try {
             const res = await fetch('/api/game/getPlayers', { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
-                const players = Array.isArray(data) ? data : Object.values(data);
-                if (players.length === 0) {
-                    tb.innerHTML = '<tr><td colspan="3" style="text-align:center; color: var(--text-muted);">Brak graczy.</td></tr>';
-                    return;
-                }
-                tb.innerHTML = '';
-                players.forEach(p => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `<td style="text-align: center;"><input type="checkbox" class="player-checkbox" value="${p.id}" data-name="${p.firstName} ${p.lastName}"></td><td>${p.firstName}</td><td>${p.lastName}</td>`;
-                    tb.appendChild(tr);
-                });
+                allPlayersCache = Array.isArray(data) ? data : Object.values(data);
+                renderFilteredPlayers();
             }
-        } catch(e) { tb.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">Błąd</td></tr>'; }
+        } catch(e) {
+            tb.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Błąd ładowania</td></tr>';
+        }
     }
 
+    function renderFilteredPlayers() {
+        const tb = document.getElementById('players-table-body');
+        const selectedCategory = document.getElementById('filter-category').value;
+        const filtered = allPlayersCache.filter(p => p.category === selectedCategory);
+
+        if (filtered.length === 0) {
+            tb.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">Brak graczy w tej kategorii.</td></tr>';
+            return;
+        }
+
+        tb.innerHTML = '';
+        filtered.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="text-align: center;"><input type="checkbox" class="player-checkbox" value="${p.id}" data-name="${p.firstName} ${p.lastName}"></td>
+                <td>${p.firstName}</td>
+                <td>${p.lastName}</td>
+                <td><span style="font-size: 12px; background: #e0e7ff; color: #4f46e5; padding: 2px 8px; border-radius: 6px; font-weight: 600;">${p.category || '-'}</span></td>
+            `;
+            tb.appendChild(tr);
+        });
+    }
+
+    // Pobieranie i renderowanie klasyfikacji graczy w 3 tabelach
     async function fetchAndRenderWinners() {
-        const tb = document.getElementById('winners-table-body');
-        tb.innerHTML = '<tr><td colspan="4" style="text-align:center;">Ładowanie...</td></tr>';
+        ['winners-junior-body', 'winners-medium-body', 'winners-senior-body'].forEach(id => {
+            document.getElementById(id).innerHTML = '<tr><td colspan="4" style="text-align:center;">Ładowanie...</td></tr>';
+        });
+
         try {
             const res = await fetch('/api/game/getWinner', { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 const winners = Array.isArray(data) ? data : Object.values(data);
-                if (winners.length === 0) {
-                    tb.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">Brak danych.</td></tr>';
-                    return;
-                }
-                tb.innerHTML = '';
-                winners.forEach((w, i) => {
-                    let rank = `${i + 1}`, cls = '';
-                    if (i === 0) { rank = '🥇'; cls = 'podium-1'; }
-                    else if (i === 1) { rank = '🥈'; cls = 'podium-2'; }
-                    else if (i === 2) { rank = '🥉'; cls = 'podium-3'; }
-                    const tr = document.createElement('tr');
-                    if (cls) tr.className = cls;
-                    tr.innerHTML = `<td style="text-align: center;">${rank}</td><td>${w.firstName}</td><td>${w.lastName}</td><td style="font-weight: 600; text-align: right; color: var(--primary);">${w.points} pkt</td>`;
-                    tb.appendChild(tr);
+
+                const grouped = { JUNIOR: [], MEDIUM: [], SENIOR: [] };
+                winners.forEach(w => {
+                    if (w.category && grouped[w.category]) {
+                        grouped[w.category].push(w);
+                    }
                 });
+
+                function renderWinnersTable(tbId, list) {
+                    const tb = document.getElementById(tbId);
+                    if (list.length === 0) {
+                        tb.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">Brak graczy</td></tr>';
+                        return;
+                    }
+                    tb.innerHTML = '';
+                    list.forEach((w, i) => {
+                        let rank = `${i + 1}`, cls = '';
+                        if (i === 0) { rank = '🥇'; cls = 'podium-1'; }
+                        else if (i === 1) { rank = '🥈'; cls = 'podium-2'; }
+                        else if (i === 2) { rank = '🥉'; cls = 'podium-3'; }
+
+                        const tr = document.createElement('tr');
+                        if (cls) tr.className = cls;
+                        tr.innerHTML = `
+                            <td style="text-align: center;">${rank}</td>
+                            <td>${w.firstName}</td>
+                            <td>${w.lastName}</td>
+                            <td style="font-weight: 600; text-align: right; color: var(--primary);">${w.points} pkt</td>
+                        `;
+                        tb.appendChild(tr);
+                    });
+                }
+
+                renderWinnersTable('winners-junior-body', grouped.JUNIOR);
+                renderWinnersTable('winners-medium-body', grouped.MEDIUM);
+                renderWinnersTable('winners-senior-body', grouped.SENIOR);
             }
-        } catch(e) { tb.innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Błąd</td></tr>'; }
+        } catch(e) {
+            ['winners-junior-body', 'winners-medium-body', 'winners-senior-body'].forEach(id => {
+                document.getElementById(id).innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Błąd ładowania</td></tr>';
+            });
+        }
     }
 
     async function fetchAndRenderFootballWinners() {
@@ -717,12 +811,13 @@
         msg.textContent = '';
         const firstName = document.getElementById('firstName').value.trim();
         const lastName = document.getElementById('lastName').value.trim();
+        const category = document.getElementById('player-category').value;
         try {
             const res = await fetch('/api/game/newPlayer', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ firstName, lastName })
+                body: JSON.stringify({ firstName, lastName, category })
             });
             if (res.ok) {
                 msg.style.color = '#10b981';

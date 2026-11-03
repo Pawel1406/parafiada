@@ -14,7 +14,7 @@ public class PlayerNotificationListener {
     @EventListener
     public void handlePlayerCreated(PlayerCreatedEvent event) {
        PlayerEntity playerEntity= event.playerEntity();
-       GamerDTO gamerDTO =new GamerDTO(playerEntity.getId(), playerEntity.getFirstName(),playerEntity.getLastName());
+       GamerDTO gamerDTO =new GamerDTO(playerEntity.getId(), playerEntity.getFirstName(),playerEntity.getLastName(),playerEntity.getCategory());
 
         messagingTemplate.convertAndSend("/topic/players",gamerDTO);
     }

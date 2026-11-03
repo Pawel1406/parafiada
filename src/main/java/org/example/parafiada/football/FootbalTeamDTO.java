@@ -9,7 +9,7 @@ public record FootbalTeamDTO(
         @NotBlank
         String name,
         @NotNull
-        FootballCategory footballCategory,
+        Category footballCategory,
         @NotBlank
         String captain
 ) {

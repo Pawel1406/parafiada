@@ -3,6 +3,8 @@ package org.example.parafiada.game;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.example.parafiada.football.Category;
+
 
 @Entity
 @Getter
@@ -25,4 +27,9 @@ public class PlayerEntity {
 
     @Column()
     private int teamId;
+
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private Category category;
+
 }

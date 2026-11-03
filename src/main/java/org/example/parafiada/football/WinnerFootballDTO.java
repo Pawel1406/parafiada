@@ -7,7 +7,7 @@ public record WinnerFootballDTO (
         @NotNull
         Long id,
         @NotNull
-        FootballCategory footballCategory,
+        Category footballCategory,
         @NotNull
         String name,
         @NotNull

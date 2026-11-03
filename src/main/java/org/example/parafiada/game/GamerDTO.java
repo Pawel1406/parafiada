@@ -1,4 +1,6 @@
 package org.example.parafiada.game;
 
-public record GamerDTO(Long id,String firstName,String lastName ) {
+import org.example.parafiada.football.Category;
+
+public record GamerDTO(Long id, String firstName, String lastName, Category category) {
 }

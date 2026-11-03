@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record FootballRegisterDTO(
         @NotNull
-        FootballCategory footballCategory,
+        Category footballCategory,
         @NotBlank
         String name,
         @NotBlank

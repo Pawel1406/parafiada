@@ -1,5 +1,5 @@
 package org.example.parafiada.football;
 
-public enum FootballCategory {
+public enum Category {
     JUNIOR, MEDIUM,SENIOR
 }

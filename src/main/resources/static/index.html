@@ -558,7 +558,8 @@
         { id: 'view-football-match', title: 'Mecz piłkarski', icon: '⚽', roles: ['ADMIN', 'FOOTBALL_USER'] },
         { id: 'view-football-reg', title: 'Rejestracja drużyny', icon: '📋', roles: ['ADMIN', 'FOOTBALL_USER'] },
         { id: 'view-football-winners', title: 'Wyniki drużyn', icon: '🏅', roles: ['ADMIN', 'FOOTBALL_USER'] },
-        { id: 'view-admin', title: 'Zarządzaj użytkownikami', icon: '⚙️', roles: ['ADMIN'] }
+        { id: 'view-register-user', title: 'Dodaj użytkownika', icon: '➕', roles: ['ADMIN'] }, // <-- Nowy kafelek w index.html
+        { id: 'view-admin-panel', title: 'Zarządzanie bazą', icon: '⚙️', roles: ['ADMIN'] }       // <-- Przekierowanie do admin.html
     ];
 
     // WebSocket
@@ -622,7 +623,15 @@
                 const tile = document.createElement('div');
                 tile.className = 'menu-tile';
                 tile.innerHTML = `<span>${item.title}</span><span class="icon">${item.icon}</span>`;
-                tile.addEventListener('click', () => showView(item.id));
+
+                if (item.id === 'view-admin-panel') {
+                    tile.addEventListener('click', () => {
+                        window.location.href = 'admin.html';
+                    });
+                } else {
+                    tile.addEventListener('click', () => showView(item.id));
+                }
+
                 menuGrid.appendChild(tile);
             }
         });

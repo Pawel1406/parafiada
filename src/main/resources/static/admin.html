@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Parafiada - Panel Administratora</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-main: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 16px;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .app-container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        @media (min-width: 500px) {
+            .app-container {
+                min-height: 85vh;
+                border-radius: var(--radius);
+                border: 1px solid var(--border);
+                margin: 20px;
+            }
+        }
+
+        .app-header {
+            padding: 20px;
+            background: #ffffff;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--text-main);
+        }
+
+        .app-content {
+            padding: 20px;
+            flex-grow: 1;
+            overflow-y: auto;
+            background: #f8fafc;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: var(--primary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0 0 15px 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-danger { background-color: #ef4444; }
+        .btn-danger:hover { background-color: #dc2626; }
+
+        .admin-card {
+            background: white;
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .admin-card h4 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+            color: var(--text-main);
+        }
+
+        .admin-card p {
+            margin: 0 0 10px 0;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .message-box {
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="app-header">
+        <h2>Panel Administratora</h2>
+        <div id="admin-user-info" style="font-size: 13px; color: var(--text-muted);"></div>
+    </div>
+
+    <div class="app-content">
+        <button class="back-btn" onclick="window.location.href='index.html'">← Powrót do menu</button>
+        <h3 style="margin-top: 0; margin-bottom: 20px;">Zarządzanie bazą danych</h3>
+
+        <!-- 1. Usuń użytkowników (zostaw siebie) -> odpowiada deleteUsersWithoutMe -->
+        <div class="admin-card">
+            <h4>Usuń użytkowników (zostaw siebie)</h4>
+            <p>Usuwa wszystkich użytkowników, zachowując konto obecnie zalogowanego admina.</p>
+            <button type="button" class="btn btn-danger" onclick="deleteUsersWithoutMe()">Usuń użytkowników</button>
+        </div>
+
+        <!-- 2. Usuń użytkowników bez roli ADMIN -> odpowiada deleteUsersWithoutAdmin -->
+        <div class="admin-card">
+            <h4>Usuń użytkowników bez roli ADMIN</h4>
+            <p>Usuwa wszystkich użytkowników, którzy nie posiadają uprawnień administratora.</p>
+            <button type="button" class="btn btn-danger" onclick="deleteUsersWithoutAdmin()">Usuń zwykłych użytkowników</button>
+        </div>
+
+        <!-- 3. Usuń graczy -> odpowiada deletePlayers -->
+        <div class="admin-card">
+            <h4>Usuń wszystkich graczy</h4>
+            <p>Czyszczenie tabeli graczy i resetowanie klasyfikacji turniejowej.</p>
+            <button type="button" class="btn btn-danger" onclick="deletePlayers()">Usuń graczy</button>
+        </div>
+
+        <!-- 4. Usuń drużyny piłkarskie -> odpowiada deleteFootballs -->
+        <div class="admin-card">
+            <h4>Usuń drużyny piłkarskie</h4>
+            <p>Czyszczenie wszystkich zarejestrowanych drużyn piłkarskich i ich wyników.</p>
+            <button type="button" class="btn btn-danger" onclick="deleteFootballs()">Usuń drużyny</button>
+        </div>
+
+        <div id="admin-message" class="message-box"></div>
+    </div>
+</div>
+
+<script>
+    // Weryfikacja sesji i uprawnień przy wejściu na stronę
+    window.addEventListener('DOMContentLoaded', () => {
+        const username = sessionStorage.getItem('username');
+        const role = sessionStorage.getItem('role');
+
+        if (!username || role !== 'ADMIN') {
+            alert('Brak uprawnień. Dostęp zastrzeżony dla administratora.');
+            window.location.href = 'index.html';
+            return;
+        }
+
+        document.getElementById('admin-user-info').innerHTML = `<b>${username}</b> (ADMIN)`;
+    });
+
+    const messageBox = document.getElementById('admin-message');
+
+    function showMessage(text, isError = false) {
+        messageBox.style.color = isError ? '#ef4444' : '#10b981';
+        messageBox.textContent = text;
+    }
+
+    // 1. /api/admin/deleteUsers
+    async function deleteUsersWithoutMe() {
+        if (!confirm("Czy na pewno chcesz usunąć wszystkich użytkowników oprócz siebie?")) return;
+        try {
+            const res = await fetch('/api/admin/deleteUsers', { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+                showMessage('Sukces: Usunięto użytkowników (zostawiono Twoje konto).');
+            } else {
+                showMessage('Błąd podczas usuwania użytkowników.', true);
+            }
+        } catch (e) {
+            showMessage('Błąd połączenia z serwerem.', true);
+        }
+    }
+
+    // 2. /api/admin/deleteUsersWithoutAdmin
+    async function deleteUsersWithoutAdmin() {
+        if (!confirm("Czy na pewno chcesz usunąć wszystkich użytkowników bez roli ADMIN?")) return;
+        try {
+            const res = await fetch('/api/admin/deleteUsersWithoutAdmin', { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+                showMessage('Sukces: Usunięto użytkowników niebędących administratorami.');
+            } else {
+                showMessage('Błąd podczas usuwania użytkowników.', true);
+            }
+        } catch (e) {
+            showMessage('Błąd połączenia z serwerem.', true);
+        }
+    }
+
+    // 3. /api/admin/deletePlayers
+    async function deletePlayers() {
+        if (!confirm("Czy na pewno chcesz usunąć wszystkich graczy?")) return;
+        try {
+            const res = await fetch('/api/admin/deletePlayers', { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+                showMessage('Sukces: Wszyscy gracze zostali usunięci.');
+            } else {
+                showMessage('Błąd podczas usuwania graczy.', true);
+            }
+        } catch (e) {
+            showMessage('Błąd połączenia z serwerem.', true);
+        }
+    }
+
+    // 4. /api/admin/deleteFootballs
+    async function deleteFootballs() {
+        if (!confirm("Czy na pewno chcesz usunąć wszystkie drużyny piłkarskie?")) return;
+        try {
+            const res = await fetch('/api/admin/deleteFootballs', { method: 'DELETE', credentials: 'include' });
+            if (res.ok) {
+                showMessage('Sukces: Wszystkie drużyny piłkarskie zostały usunięte.');
+            } else {
+                showMessage('Błąd podczas usuwania drużyn.', true);
+            }
+        } catch (e) {
+            showMessage('Błąd połączenia z serwerem.', true);
+        }
+    }
+</script>
+</body>
+</html>

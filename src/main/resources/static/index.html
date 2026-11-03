@@ -759,7 +759,7 @@
             document.getElementById(id).innerHTML = '<tr><td colspan="7" style="text-align:center;">Ładowanie...</td></tr>';
         });
         try {
-            const res = await fetch('/api/footballGame/winner', { credentials: 'include' });
+            const res = await fetch('/api/footballgame/winner', { credentials: 'include' });
             if (res.ok) {
                 const winners = await res.json();
                 const grouped = { JUNIOR: [], MEDIUM: [], SENIOR: [] };
@@ -872,7 +872,7 @@
         const captain = document.getElementById('team-captain').value.trim();
         const footballCategory = document.getElementById('team-category').value;
         try {
-            const res = await fetch('/api/footballGame/register', {
+            const res = await fetch('/api/footballgame/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

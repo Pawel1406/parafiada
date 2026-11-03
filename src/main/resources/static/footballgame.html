@@ -315,7 +315,7 @@
     // Pobieranie drużyn z backendu
     async function fetchTeams() {
         try {
-            const response = await fetch('/api/footballgame/getTeams', { credentials: 'include' });
+            const response = await fetch('/api/footballGame/getTeams', { credentials: 'include' });
             if (response.ok) {
                 allTeams = await response.json();
                 renderCategories();
@@ -559,7 +559,7 @@
         };
 
         try {
-            const response = await fetch('/api/footballgame/matchResult', {
+            const response = await fetch('/api/footballGame/matchResult', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

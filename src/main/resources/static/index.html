@@ -504,8 +504,8 @@
             <div id="football-winners-message" class="message-box"></div>
         </div>
 
-        <!-- WIDOK 7: ADMIN - REJESTRACJA UŻYTKOWNIKA -->
-        <div id="view-admin" class="module-view">
+        <!-- WIDOK 7: DODAJ UŻYTKOWNIKA (ADMIN) -->
+        <div id="view-register-user" class="module-view">
             <button class="back-btn" onclick="goToMenu()">← Powrót do menu</button>
             <h3 style="margin-top: 0;">Nowy użytkownik systemu</h3>
             <form id="registerForm">
@@ -558,8 +558,8 @@
         { id: 'view-football-match', title: 'Mecz piłkarski', icon: '⚽', roles: ['ADMIN', 'FOOTBALL_USER'] },
         { id: 'view-football-reg', title: 'Rejestracja drużyny', icon: '📋', roles: ['ADMIN', 'FOOTBALL_USER'] },
         { id: 'view-football-winners', title: 'Wyniki drużyn', icon: '🏅', roles: ['ADMIN', 'FOOTBALL_USER'] },
-        { id: 'view-register-user', title: 'Dodaj użytkownika', icon: '➕', roles: ['ADMIN'] }, // <-- Nowy kafelek w index.html
-        { id: 'view-admin-panel', title: 'Zarządzanie bazą', icon: '⚙️', roles: ['ADMIN'] }       // <-- Przekierowanie do admin.html
+        { id: 'view-register-user', title: 'Dodaj użytkownika', icon: '➕', roles: ['ADMIN'] }, // Formularz w index.html
+        { id: 'view-admin-panel', title: 'Zarządzanie bazą', icon: '⚙️', roles: ['ADMIN'] }       // Przekierowanie do admin.html
     ];
 
     // WebSocket
@@ -624,6 +624,7 @@
                 tile.className = 'menu-tile';
                 tile.innerHTML = `<span>${item.title}</span><span class="icon">${item.icon}</span>`;
 
+                // Obsługa przekierowania do osobnego pliku admin.html lub widoku lokalnego
                 if (item.id === 'view-admin-panel') {
                     tile.addEventListener('click', () => {
                         window.location.href = 'admin.html';
@@ -759,7 +760,7 @@
             document.getElementById(id).innerHTML = '<tr><td colspan="7" style="text-align:center;">Ładowanie...</td></tr>';
         });
         try {
-            const res = await fetch('/api/footballgame/winner', { credentials: 'include' });
+            const res = await fetch('/api/footballGame/winner', { credentials: 'include' });
             if (res.ok) {
                 const winners = await res.json();
                 const grouped = { JUNIOR: [], MEDIUM: [], SENIOR: [] };
@@ -872,7 +873,7 @@
         const captain = document.getElementById('team-captain').value.trim();
         const footballCategory = document.getElementById('team-category').value;
         try {
-            const res = await fetch('/api/footballgame/register', {
+            const res = await fetch('/api/footballGame/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

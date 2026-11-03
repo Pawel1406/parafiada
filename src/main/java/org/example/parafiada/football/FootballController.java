@@ -8,7 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/footballgame")
+@RequestMapping("/api/footballGame")
 @RequiredArgsConstructor
 public class FootballController {
     private final FootballService footballService;

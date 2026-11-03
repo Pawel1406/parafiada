@@ -315,7 +315,7 @@
     // Pobieranie drużyn z backendu
     async function fetchTeams() {
         try {
-            const response = await fetch('/api/footballGame/getTeams', { credentials: 'include' });
+            const response = await fetch('/api/footballgame/getTeams', { credentials: 'include' });
             if (response.ok) {
                 allTeams = await response.json();
                 renderCategories();
@@ -397,7 +397,7 @@
         const t1 = checked[0];
         const t2 = checked[1];
 
-        window.location.href = `footballGame.html?t1Id=${t1.value}&t1Name=${encodeURIComponent(t1.getAttribute('data-name'))}&t2Id=${t2.value}&t2Name=${encodeURIComponent(t2.getAttribute('data-name'))}`;
+        window.location.href = `footballgame.html?t1Id=${t1.value}&t1Name=${encodeURIComponent(t1.getAttribute('data-name'))}&t2Id=${t2.value}&t2Name=${encodeURIComponent(t2.getAttribute('data-name'))}`;
     });
 
     // --- LOGIKA MECZU ---
@@ -559,7 +559,7 @@
         };
 
         try {
-            const response = await fetch('/api/footballGame/matchResult', {
+            const response = await fetch('/api/footballgame/matchResult', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
